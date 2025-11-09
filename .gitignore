@@ -1,10 +1,6 @@
 # Model artifacts
 models/
 
-# Datasets (large files)
-datasets/
-!datasets/.gitkeep
-
 # Reports and visualizations
 reports/
 
