@@ -37,16 +37,16 @@ def load_csv(path: str) -> pd.DataFrame:
 def list_datasets(project_root: Path) -> List[str]:
     """Lists all CSV files in the datasets and datasets/processed directories."""
     paths: List[str] = []
-    relative_roots = ["datasets", os.path.join("datasets", "processed")]
+    # Define relative root directories as Path objects
+    relative_roots = [Path("datasets"), Path("datasets") / "processed"]
     
     for rel_root in relative_roots:
         abs_root = project_root / rel_root
         if abs_root.is_dir():
-            for name in os.listdir(abs_root):
-                abs_p = abs_root / name
-                if name.lower().endswith(".csv") and abs_p.is_file():
-                    # Return the path relative to the project root for display
-                    paths.append(os.path.join(rel_root, name).replace('\\', '/'))
+            for abs_p in abs_root.glob("*.csv"):
+                if abs_p.is_file():
+                    # Return the path as a string, relative to the project_root
+                    paths.append(str(abs_p.relative_to(project_root)).replace('\\', '/'))
     return sorted(list(set(paths)))
 
 
