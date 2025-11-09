@@ -34,15 +34,20 @@ def load_csv(path: str) -> pd.DataFrame:
 
 
 @st.cache_data(show_spinner=False)
-def list_datasets() -> List[str]:
+def list_datasets(project_root: Path) -> List[str]:
+    """Lists all CSV files in the datasets and datasets/processed directories."""
     paths: List[str] = []
-    for root in ("datasets", os.path.join("datasets", "processed")):
-        if os.path.isdir(root):
-            for name in os.listdir(root):
-                p = os.path.join(root, name)
-                if name.lower().endswith(".csv") and os.path.isfile(p):
-                    paths.append(p)
-    return sorted(paths)
+    relative_roots = ["datasets", os.path.join("datasets", "processed")]
+    
+    for rel_root in relative_roots:
+        abs_root = project_root / rel_root
+        if abs_root.is_dir():
+            for name in os.listdir(abs_root):
+                abs_p = abs_root / name
+                if name.lower().endswith(".csv") and abs_p.is_file():
+                    # Return the path relative to the project root for display
+                    paths.append(os.path.join(rel_root, name).replace('\\', '/'))
+    return sorted(list(set(paths)))
 
 
 def infer_cols(df: pd.DataFrame) -> Tuple[str, str]:
@@ -111,30 +116,37 @@ def main():
     # --- Path Setup ---
     # Use pathlib for robust path handling, especially in cloud environments
     try:
+        # The script_dir is the directory of the script being run.
         script_dir = Path(os.path.dirname(os.path.abspath(__file__)))
+        # The project_root is one level up.
+        project_root = script_dir.parent
     except NameError:
-        # Fallback for environments where __file__ is not defined (e.g., some notebooks)
-        script_dir = Path.cwd()
-    
-    project_root = script_dir.parent
+        # Fallback for environments where __file__ is not defined
+        project_root = Path.cwd()
 
     # Sidebar: data and artifacts
     with st.sidebar:
         st.header("Inputs")
-        datasets = list_datasets()
-        ds_path_relative = st.selectbox("Dataset CSV", datasets, index=datasets.index("datasets/processed/sms_spam_full.csv") if "datasets/processed/sms_spam_full.csv" in datasets else 0)
+        datasets = list_datasets(project_root)
         
-        # Construct absolute path
-        ds_path_absolute = project_root / ds_path_relative
+        default_dataset = "datasets/processed/sms_spam_full.csv"
+        if default_dataset not in datasets:
+            default_dataset = datasets[0] if datasets else None
+
+        ds_path_relative = st.selectbox("Dataset CSV", datasets, index=datasets.index(default_dataset) if default_dataset else 0)
         
-        df = load_csv(ds_path_absolute)
+        if ds_path_relative:
+            ds_path_absolute = project_root / ds_path_relative
+            df = load_csv(ds_path_absolute)
+        else:
+            st.error("No datasets found. Please add CSV files to the 'datasets' or 'datasets/processed' directory.")
+            st.stop()
+
         label_col, text_col = infer_cols(df)
         label_col = st.selectbox("Label column", options=list(df.columns), index=list(df.columns).index(label_col))
         text_col = st.selectbox("Text column", options=list(df.columns), index=list(df.columns).index(text_col))
 
         models_dir_relative = st.text_input("Models dir", value="models")
-        
-        # Construct absolute path for models directory
         models_dir_absolute = project_root / models_dir_relative
         
         test_size = st.slider("Test size", min_value=0.1, max_value=0.4, value=0.2, step=0.05)
