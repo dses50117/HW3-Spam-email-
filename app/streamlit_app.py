@@ -111,13 +111,23 @@ def main():
     with st.sidebar:
         st.header("Inputs")
         datasets = list_datasets()
-        ds_path = st.selectbox("Dataset CSV", datasets, index=datasets.index("datasets/processed/sms_spam_full.csv") if "datasets/processed/sms_spam_full.csv" in datasets else 0)
-        df = load_csv(ds_path)
+        ds_path_relative = st.selectbox("Dataset CSV", datasets, index=datasets.index("datasets/processed/sms_spam_full.csv") if "datasets/processed/sms_spam_full.csv" in datasets else 0)
+        
+        # Construct absolute path to handle cloud environments
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(script_dir)
+        ds_path_absolute = os.path.join(project_root, ds_path_relative)
+        
+        df = load_csv(ds_path_absolute)
         label_col, text_col = infer_cols(df)
         label_col = st.selectbox("Label column", options=list(df.columns), index=list(df.columns).index(label_col))
         text_col = st.selectbox("Text column", options=list(df.columns), index=list(df.columns).index(text_col))
 
-        models_dir = st.text_input("Models dir", value="models")
+        models_dir_relative = st.text_input("Models dir", value="models")
+        
+        # Construct absolute path for models directory
+        models_dir_absolute = os.path.join(project_root, models_dir_relative)
+        
         test_size = st.slider("Test size", min_value=0.1, max_value=0.4, value=0.2, step=0.05)
         seed = st.number_input("Seed", min_value=0, value=42, step=1)
         threshold = st.slider("Decision threshold", min_value=0.1, max_value=0.9, value=0.5, step=0.01)
@@ -157,8 +167,8 @@ def main():
 
     # Model-based visuals
     st.subheader("Model Performance (Test)")
-    if os.path.exists(os.path.join(models_dir, "spam_tfidf_vectorizer.joblib")) and os.path.exists(os.path.join(models_dir, "spam_logreg_model.joblib")):
-        vec, clf, pos_label, neg_label = load_artifacts(models_dir)
+    if os.path.exists(os.path.join(models_dir_absolute, "spam_tfidf_vectorizer.joblib")) and os.path.exists(os.path.join(models_dir_absolute, "spam_logreg_model.joblib")):
+        vec, clf, pos_label, neg_label = load_artifacts(models_dir_absolute)
         X = df[text_col].astype(str).fillna("")
         y = label_to_int(df[label_col], pos_label=pos_label)
         Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=test_size, random_state=seed, stratify=y)
